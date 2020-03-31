@@ -1,0 +1,262 @@
+<script cml-type="interface">
+type callback = (res: CMLObject) => void
+interface RecorderManagerInterface {
+  getRecorderManager(): CMLObject;
+}
+</script>
+
+<script cml-type="web">
+import cml from "chameleon-api"
+import EventEmitter from 'events'
+import RecordRTC from 'recordrtc'
+import getBlobDuration from 'get-blob-duration'
+
+class Method implements RecorderManagerInterface {
+  getRecorderManager() {
+    let recordContext = {};
+    let events = new EventEmitter();
+
+    let recordInstance = Promise.resolve().then(() => {
+
+    return navigator.mediaDevices.getUserMedia({
+      audio: true
+    }).then(stream => {
+      let recorder = new RecordRTC(stream, {
+        type: 'audio'
+      });
+      return recorder
+    })
+    }).catch(err => {
+      //创建失败
+      events.emit('onError');
+      console.log(err)
+    });
+
+//以下方法都放在recordInstance.then的回调中，保证是在创建音频成功的情况下执行；
+    //播放功能
+    recordContext.start = function(options) {
+      recordInstance.then(recorder => {
+        let duration = options.duration || 60000
+        let format = options.format || 'mp3'
+        recorder.startRecording()
+        events.emit('onStart');
+      })
+    }
+      
+    recordContext.stop = function() {
+      recordInstance.then(recorder => {
+        recorder.stopRecording(() => {
+          let blob = recorder.getBlob();
+          getBlobDuration(blob).then(function(duration) {
+            console.log(duration*1000);
+            events.emit('onStop', {
+              tempFilePath: URL.createObjectURL(blob),
+              duration: duration*1000,
+              fileSize: blob.size
+            });
+          });
+        });
+      })
+    }
+
+    let onRecordEvents = ['onError', 'onFrameRecorded', 'onInterruptionBegin', 'onInterruptionEnd', 'onPause', 'onResume', 'onStart', 'onStop'];
+    onRecordEvents.forEach((item) => {
+      recordContext[item] = function(callback) {
+        events.addListener(item, callback); //同步注册方法
+      }
+    });
+    let offRecordEvents = ['offError', 'offFrameRecorded', 'offInterruptionBegin', 'offInterruptionEnd', 'offPause', 'offResume', 'offStart', 'offStop'];
+    offRecordEvents.forEach((item) => {
+      recordContext[item] = function(callback) {
+        events.removeAllListeners(item); //同步注册方法
+      }
+    });
+
+      return recordContext;
+  }
+}
+
+export default new Method();
+</script>
+
+<script cml-type="weex">
+import cmlBridge from '../../lib/sdk/cmlBridge';
+import * as weexRecorder from './weex-recorder.js';
+import cml from "chameleon-api";
+//设计思路，在createCb里面绑定事件，用于play pause setSrc，然后再执行这些方法的时候去触发对应的事件；
+//play的时候设置定时器获取播放进度；pause  stop destroy 的时候需要清除定时器
+import EventEmitter from 'events'
+class Method implements RecorderManagerInterface {
+  getRecorderManager() {
+    let recordContext = {};
+    let timer = null;
+    let events = new EventEmitter();
+    //获取音频播放的当前时间
+    // let startInterval = function() {
+    //   timer = setInterval(() => { //摧毁的时候需要关掉轮询
+    //     console.log('interval')
+    //     recordInstance.then((res) => {
+    //       weexAudio.getWeexAudioCurrentPos({
+    //         id: res.data.id
+    //       }, function(currentPosRes) {
+    //         recordContext.currentTime = currentPosRes.data && currentPosRes.data.msec / 1000;
+    //         recordContext.duration = res.data && res.data.duration / 1000
+    //         events.emit('onTimeUpdate');
+    //       })
+    //     })
+    //   }, 500);
+    // }
+    cmlBridge.consoleLog({
+      tag: "hihi",
+      msg: "firstlog"
+      })
+    let recordInstance = Promise.resolve().then(() => {
+      // let looping = recordContext.loop ? '1' : '0';
+      // // let volume = recordContext.volume == 1 ? 1.0 : parseFloat(recordContext.volume);
+      // let volume = 1.0;
+      // if (recordContext.volume == 0) {
+      //   volume = 0;
+      // } else { //未定义volumn 则默认值为1.0;
+      //   volume = parseFloat(recordContext.volume || 1.0)
+      // }
+      return weexRecorder.createWeexRecord().then((res) => {
+        //recordContext.id = res.data.id;
+        console.log('create-recorder', res)
+        
+        return res;
+      });
+    }).catch((res) => {
+      //创建失败
+      events.emit('onError');
+      console.log(res.msg)
+    });
+    //以下方法都放在recordInstance.then的回调中，保证是在创建音频成功的情况下执行；
+    //播放功能
+    recordContext.start = function(options) {
+      recordInstance.then((res) => {
+        weexRecorder.startWeexRecord(options, () => {})
+      })
+    }
+    //暂停功能
+    recordContext.pause = function() {
+      recordInstance.then((res) => {
+        weexRecorder.pauseWeexRecord({
+          id: res.data.id
+        }, () => {})
+      });
+    }
+    //暂停功能，下次播放将重新播放；
+    recordContext.stop = function() {
+      recordInstance.then((res) => {
+        recordContext.pause();
+        recordContext.seek(0);
+        events.emit('onStop');
+      })
+    }
+    //摧毁音频
+    recordContext.destroy = function() {
+      clearInterval(timer);
+      recordInstance.then((res) => {
+        weexAudio.destroyAudio({
+          id: res.data.id
+        }, () => {})
+      })
+    }
+    //监听音频状态变化
+    recordInstance.then((res) => {
+      //let {errno,msg,data} = res;//data:{id:1}
+      weexAudio.audioStatusChange(function(statusRes) {
+        //{"id":0,"status":1} 准备:1 ,播放：2，暂停：3，结束：4
+        if (res.data.id == statusRes.id) { //首先判断是同一个音频器
+          if (statusRes.status == 1) {
+            events.emit('onCanPlay'); //准备，触发onCanPlay回调
+          };
+          if (statusRes.status == 2) {
+            events.emit('onPlay');
+            recordContext.paused = false;
+            startInterval();
+          }
+          if (statusRes.status == 3) {
+            events.emit('onPause');
+            recordContext.paused = true;
+            clearInterval(timer);
+          }
+          if (statusRes.status == 4) { //loop情况下不会触发
+            events.emit('onEnded');
+            console.log('onEnded-status4')
+            clearInterval(timer);
+          }
+        }
+      })
+    })
+
+
+    let onAudioEvents = ['onCanPlay', 'onPlay', 'onPause', 'onEnded', 'onError', 'onTimeUpdate', 'onSeeking', 'onSeeked', 'onStop'];
+    onAudioEvents.forEach((item) => {
+      recordContext[item] = function(callback) {
+        events.addListener(item, callback); //同步注册方法
+      }
+    });
+    let offAudioEvents = ['offCanPlay', 'offPlay', 'offPause', 'offEnded', 'offError', 'offTimeUpdate', 'offSeeking', 'offSeeked', 'offStop'];
+    offAudioEvents.forEach((item) => {
+      recordContext[item] = function(callback) {
+        events.removeAllListeners(item); //同步注册方法
+      }
+    });
+
+    return recordContext;
+  }
+}
+
+export default new Method();
+</script>
+
+<script cml-type="wx">
+class Method implements RecorderManagerInterface {
+  getRecorderManager() {
+    return wx.getRecorderManager();
+  }
+}
+
+export default new Method();
+</script>
+
+<script cml-type="qq">
+class Method implements RecorderManagerInterface {
+  getRecorderManager() {
+    return qq.getRecorderManager();
+  }
+}
+
+export default new Method();
+</script>
+
+<script cml-type="alipay">
+class Method implements RecorderManagerInterface {
+  getRecorderManager() {
+    return alipay.getRecorderManager();
+  }
+}
+
+export default new Method();
+</script>
+
+<script cml-type="baidu">
+class Method implements RecorderManagerInterface {
+  getRecorderManager() {
+    return baidu.getRecorderManager();
+  }
+}
+
+export default new Method();
+</script>
+
+<script cml-type="tt">
+class Method implements RecorderManagerInterface {
+  getRecorderManager() {
+    return baidu.getRecorderManager();
+  }
+}
+
+export default new Method();
+</script>

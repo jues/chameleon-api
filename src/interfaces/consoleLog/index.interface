@@ -1,0 +1,72 @@
+<script cml-type="interface">
+  interface ConsoleLogInterface {
+    consoleLog(msg: string): void
+  }
+</script>
+
+<script cml-type="web">
+
+  class Method implements ConsoleLogInterface {
+    consoleLog(msg) {
+      console.log(msg);
+    }
+  }
+
+  export default new Method();
+</script>
+
+<script cml-type="weex">
+import cmlBridge from '../../lib/sdk/cmlBridge';
+
+  class Method implements ConsoleLogInterface {
+    consoleLog(msg) {
+      cmlBridge.consoleLog(msg);
+    }
+  }
+
+  export default new Method();
+</script>
+
+
+<script cml-type="wx">
+  class Method implements ConsoleLogInterface {
+    consoleLog(msg) {
+      console.log(msg);
+    }
+  }
+
+  export default new Method();
+</script>
+
+<script cml-type="qq">
+  class Method implements ConsoleLogInterface {
+    consoleLog(msg) {
+      console.log(msg);
+    }
+  }
+
+  export default new Method();
+</script>
+
+<script cml-type="baidu">
+  class Method implements ConsoleLogInterface {
+    consoleLog(msg) {
+      console.log(msg);
+    }
+  }
+
+  export default new Method();
+</script>
+
+<script cml-type="alipay">
+  class Method implements ConsoleLogInterface {
+    consoleLog(msg) {
+      console.log(msg);
+    }
+  }
+
+  export default new Method();
+</script>
+
+
+
