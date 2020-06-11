@@ -33,6 +33,7 @@ import scrollTo from './src/interfaces/scrollTo/index.js';
 import createInnerAudioContext from './src/interfaces/createInnerAudioContext/index.js';
 import createVideoContext from './src/interfaces/createVideoContext/index.js';
 import getRecorderManager from './src/interfaces/getRecorderManager/index.js';
+import consoleLog from './src/interfaces/consoleLog/index.js';
 export default {
   requestAnimationFrame,
   cancelAnimationFrame,
@@ -68,5 +69,6 @@ export default {
   scrollTo,
   createInnerAudioContext,
   createVideoContext,
-  getRecorderManager
+  getRecorderManager,
+  consoleLog
 };

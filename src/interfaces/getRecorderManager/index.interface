@@ -80,9 +80,10 @@ export default new Method();
 </script>
 
 <script cml-type="weex">
-import cmlBridge from '../../lib/sdk/cmlBridge';
+import cmlBridge from 'chameleon-bridge';
 import * as weexRecorder from './weex-recorder.js';
 import cml from "chameleon-api";
+import consoleLog from '../consoleLog/index.js';
 //设计思路，在createCb里面绑定事件，用于play pause setSrc，然后再执行这些方法的时候去触发对应的事件；
 //play的时候设置定时器获取播放进度；pause  stop destroy 的时候需要清除定时器
 import EventEmitter from 'events'
@@ -106,10 +107,7 @@ class Method implements RecorderManagerInterface {
     //     })
     //   }, 500);
     // }
-    cmlBridge.consoleLog({
-      tag: "hihi",
-      msg: "firstlog"
-      })
+    consoleLog("getRecorderManager")
     let recordInstance = Promise.resolve().then(() => {
       // let looping = recordContext.loop ? '1' : '0';
       // // let volume = recordContext.volume == 1 ? 1.0 : parseFloat(recordContext.volume);
@@ -121,7 +119,7 @@ class Method implements RecorderManagerInterface {
       // }
       return weexRecorder.createWeexRecord().then((res) => {
         //recordContext.id = res.data.id;
-        console.log('create-recorder', res)
+        consoleLog('create-recorder')
         
         return res;
       });
@@ -134,23 +132,35 @@ class Method implements RecorderManagerInterface {
     //播放功能
     recordContext.start = function(options) {
       recordInstance.then((res) => {
-        weexRecorder.startWeexRecord(options, () => {})
+        weexRecorder.startWeexRecord(options, (res) => {
+          consoleLog('onStart')
+          consoleLog(JSON.stringify(res))
+          events.emit('onStart');
+        })
       })
     }
     //暂停功能
     recordContext.pause = function() {
       recordInstance.then((res) => {
-        weexRecorder.pauseWeexRecord({
-          id: res.data.id
-        }, () => {})
+        weexRecorder.pauseWeexRecord((res) => {
+          consoleLog(JSON.stringify(res))
+          events.emit('onPause');
+        })
       });
     }
     //暂停功能，下次播放将重新播放；
     recordContext.stop = function() {
       recordInstance.then((res) => {
-        recordContext.pause();
-        recordContext.seek(0);
-        events.emit('onStop');
+        consoleLog('before stopWeexRecord')
+        weexRecorder.stopWeexRecord((res) => {
+          consoleLog('onStop')
+          consoleLog(JSON.stringify(res))
+          consoleLog(res.data.path)
+          consoleLog('11')
+          events.emit('onStop', {
+            tempFilePath: res.data.path
+          });
+        })
       })
     }
     //摧毁音频
@@ -162,47 +172,20 @@ class Method implements RecorderManagerInterface {
         }, () => {})
       })
     }
-    //监听音频状态变化
-    recordInstance.then((res) => {
-      //let {errno,msg,data} = res;//data:{id:1}
-      weexAudio.audioStatusChange(function(statusRes) {
-        //{"id":0,"status":1} 准备:1 ,播放：2，暂停：3，结束：4
-        if (res.data.id == statusRes.id) { //首先判断是同一个音频器
-          if (statusRes.status == 1) {
-            events.emit('onCanPlay'); //准备，触发onCanPlay回调
-          };
-          if (statusRes.status == 2) {
-            events.emit('onPlay');
-            recordContext.paused = false;
-            startInterval();
-          }
-          if (statusRes.status == 3) {
-            events.emit('onPause');
-            recordContext.paused = true;
-            clearInterval(timer);
-          }
-          if (statusRes.status == 4) { //loop情况下不会触发
-            events.emit('onEnded');
-            console.log('onEnded-status4')
-            clearInterval(timer);
-          }
-        }
-      })
-    })
 
-
-    let onAudioEvents = ['onCanPlay', 'onPlay', 'onPause', 'onEnded', 'onError', 'onTimeUpdate', 'onSeeking', 'onSeeked', 'onStop'];
-    onAudioEvents.forEach((item) => {
+    let onRecordEvents = ['onError', 'onFrameRecorded', 'onInterruptionBegin', 'onInterruptionEnd', 'onPause', 'onResume', 'onStart', 'onStop'];
+    onRecordEvents.forEach((item) => {
       recordContext[item] = function(callback) {
         events.addListener(item, callback); //同步注册方法
       }
     });
-    let offAudioEvents = ['offCanPlay', 'offPlay', 'offPause', 'offEnded', 'offError', 'offTimeUpdate', 'offSeeking', 'offSeeked', 'offStop'];
-    offAudioEvents.forEach((item) => {
+    let offRecordEvents = ['offError', 'offFrameRecorded', 'offInterruptionBegin', 'offInterruptionEnd', 'offPause', 'offResume', 'offStart', 'offStop'];
+    offRecordEvents.forEach((item) => {
       recordContext[item] = function(callback) {
         events.removeAllListeners(item); //同步注册方法
       }
     });
+
 
     return recordContext;
   }

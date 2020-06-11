@@ -83,9 +83,8 @@ export default new Method();
 
 <script cml-type="weex">
 import cmlBridge from '../../lib/sdk/cmlBridge';
-import * as weexAudio from './weex-audio2.js';
+import * as weexAudio from './weex-audio.js';
 import cml from "chameleon-api";
-import consoleLog from '../consoleLog/index.js';
 //设计思路，在createCb里面绑定事件，用于play pause setSrc，然后再执行这些方法的时候去触发对应的事件；
 //play的时候设置定时器获取播放进度；pause  stop destroy 的时候需要清除定时器
 import EventEmitter from 'events'
@@ -95,18 +94,18 @@ class Method implements AudioInterfaceInterface {
     let timer = null;
     let events = new EventEmitter();
     //获取音频播放的当前时间
-    // let startInterval = function(){
-    //   timer = setInterval(() => { //摧毁的时候需要关掉轮询
-    //     console.log('interval')
-    //     audioInstance.then((res) => {
-    //       weexAudio.getWeexAudioCurrentPos({id:res.data.id},function(currentPosRes){
-    //         audioContext.currentTime = currentPosRes.data && currentPosRes.data.msec/1000;
-    //         audioContext.duration = res.data && res.data.duration/1000
-    //         events.emit('onTimeUpdate');
-    //       })
-    //     })
-    //   }, 500);
-    // }
+    let startInterval = function(){
+      timer = setInterval(() => { //摧毁的时候需要关掉轮询
+        console.log('interval')
+        audioInstance.then((res) => {
+          weexAudio.getWeexAudioCurrentPos({id:res.data.id},function(currentPosRes){
+            audioContext.currentTime = currentPosRes.data && currentPosRes.data.msec/1000;
+            audioContext.duration = res.data && res.data.duration/1000
+            events.emit('onTimeUpdate');
+          })
+        })
+      }, 500);
+    }
     let audioInstance = Promise.resolve().then(() => {
       let looping = audioContext.loop ? '1' : '0';
       // let volume = audioContext.volume == 1 ? 1.0 : parseFloat(audioContext.volume);
@@ -117,7 +116,8 @@ class Method implements AudioInterfaceInterface {
         volume = parseFloat(audioContext.volume || 1.0)
       }
       return weexAudio.createWeexAudio({url:audioContext.src,looping,volume}).then((res) => {
-        consoleLog('createWeexAudio')
+        audioContext.id = res.data.id;
+        console.log('create-audio',res)
         if(audioContext.autoplay === true){ //如果是自动播放，那么在创建成功之后直接播放
           audioContext.play();
         }

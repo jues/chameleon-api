@@ -1,9 +1,9 @@
 import cmlBridge from 'chameleon-bridge';
 import consoleLog from '../consoleLog/index.js';
 
-const moduleName = 'record';
+const moduleName = 'audio';
 
-export const createWeexRecord = function (param = {}) {
+export const createWeexAudio = function (param = {}) {
   // cb({name:'jim'})
   return new Promise((resolve, reject) => {
     consoleLog("before callNative create")
@@ -14,8 +14,7 @@ export const createWeexRecord = function (param = {}) {
       res => {
         let { errno, msg } = res;//data:{id:1}
         if (errno == 0) {
-          console.log('create-success');
-          res.msg = res.msg + 'create-success'
+          res.msg = res.msg + 'audio create-success'
           resolve(res)
         } else {
           reject({ errno: -1, msg: 'failed create weex record' })
@@ -24,21 +23,21 @@ export const createWeexRecord = function (param = {}) {
   })
 
 }
-export const startWeexRecord = function (param, cb = () => { }) {
+export const playWeexAudio = function (param, cb = () => { }) {
   /**
  * @param:{id:1}
  */
   cmlBridge.callNative(
     moduleName, // 模块名
-    'start', // 方法名
+    'play', // 方法名
     param, // 参数
     res => {
-      consoleLog('started before cb')
+      consoleLog('played before cb')
       let { errno, msg } = res;//data:{id:1}
       cb(res)
     });
 }
-export const stopWeexRecord = function (cb = () => { }) {
+export const pauseWeexAudio = function (cb = () => { }) {
   /**
  * @param:{id:1}
  */
@@ -49,6 +48,48 @@ export const stopWeexRecord = function (cb = () => { }) {
     res => {
       let { errno, msg } = res;//data:{id:1}
       consoleLog('stopped before cb')
+      cb(res)
+    });
+}
+export const seekToWeexAudio = function (cb = () => { }) {
+  /**
+ * @param:{id:1}
+ */
+  cmlBridge.callNative(
+    moduleName, // 模块名
+    'stop', // 方法名
+    null, // 参数
+    res => {
+      let { errno, msg } = res;//data:{id:1}
+      consoleLog('stopped before cb')
+      cb(res)
+    });
+}
+export const stopAudio = function (cb = () => { }) {
+  /**
+ * @param:{id:1}
+ */
+  cmlBridge.callNative(
+    moduleName, // 模块名
+    'stop', // 方法名
+    null, // 参数
+    res => {
+      let { errno, msg } = res;//data:{id:1}
+      consoleLog('stopped before cb')
+      cb(res)
+    });
+}
+export const destroyAudio = function (cb = () => { }) {
+  /**
+ * @param:{id:1}
+ */
+  cmlBridge.callNative(
+    moduleName, // 模块名
+    'destroy', // 方法名
+    null, // 参数
+    res => {
+      let { errno, msg } = res;//data:{id:1}
+      consoleLog('destroyed before cb')
       cb(res)
     });
 }

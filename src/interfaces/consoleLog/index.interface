@@ -16,11 +16,19 @@
 </script>
 
 <script cml-type="weex">
-import cmlBridge from '../../lib/sdk/cmlBridge';
+import cmlBridge from 'chameleon-bridge';
 
   class Method implements ConsoleLogInterface {
     consoleLog(msg) {
-      cmlBridge.consoleLog(msg);
+      cmlBridge.callNative(
+        'consoleLog', // 模块名
+        'consoleLog', // 方法名
+        { tag: 'cmlBridge',
+          msg: msg }, // 参数
+        res => {
+          this.callbackRes = res;
+        } // 回调方法
+      );
     }
   }
 
@@ -68,5 +76,14 @@ import cmlBridge from '../../lib/sdk/cmlBridge';
   export default new Method();
 </script>
 
+<script cml-type="tt">
+  class Method implements ConsoleLogInterface {
+    consoleLog(msg) {
+      console.log(msg);
+    }
+  }
+
+  export default new Method();
+</script>
 
 
